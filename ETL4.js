@@ -1,7 +1,7 @@
 const Papa = require('papaparse');
 const fs = require('fs');
 const { resolve } = require('path');
-const file = fs.createReadStream('characteristics.csv');
+const file = fs.createReadStream('characteristic_reviews.csv');
 const { Pool, Client } = require('pg')
 const pool = new Pool({
   user: 'brandonvega',
@@ -29,8 +29,14 @@ pool.connect()
       return new Promise((resolve, reject) => {
         var query = `INSERT INTO metadata VALUES `;
         arr.forEach((characteristic) => {
-          client.query(`SELECT name FROM characteristics WHERE id=${characteristic.characteristic_id}`)
-            .then(data => {console.log(data); resolve()})
+          client.query(`SELECT name, product_id FROM characteristics WHERE id=${characteristic.characteristic_id}`)
+            .then(data => {
+              if (data[0].name === 'Quality' || data[0].name === '"Quality"' || data[0].name === "'Quality'" ) {
+
+              }
+              resolve()
+
+            })
           query += `()`
           // for (var key in review) {
           //   if (key === 'date') {
