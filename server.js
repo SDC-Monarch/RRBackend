@@ -26,20 +26,39 @@ app.get('/reviews/', (req, res) => {
     FROM reviews
     WHERE product_id=${product}
     ${sort === 'newest' ? `ORDER BY date DESC LIMIT ${count};` : sort === 'helpfulness' ?`ORDER BY helpfulness DESC LIMIT ${count};` : `LIMIT ${count};`}`)
-    .then(data => {
+    .then(async (data) => {
       var relevantObjs = [];
-      data.rows.forEach(row => {
+      for (var i = 0; i < data.rows.length; i++) {
+        var row = data.rows[i];
+        var photos = await req.psqlClient.query(`SELECT * FROM photos WHERE review_id=${row.id}`);
+        row.photos = []
+        photos.rows.forEach((photoRow) => {row.photos.push(photoRow.photo_link)})
+        row.review_id = row.id;
+        delete row.id;
+        console.log(photos.rows);
+        console.log(row.review_id)
         if (sort === 'helpfulness' || sort === 'newest') {
-          row.review_id = row.id;
-          delete row.id;
           returnObject.results.push(row)
         } else if (sort === 'relevant') {
-          row.review_id = row.id;
-          delete row.id;
           row.relevance = new Date(new Date(row.date).getTime() + monthInUnix * row.helpfulness).getTime();
           relevantObjs.push(row)
         }
-      })
+      }
+      // data.rows.forEach(async (row) => {
+      //   var photos = await req.psqlClient.query(`SELECT * FROM photos WHERE review_id=${row.id}`);
+      //   row.photos = []
+      //   photos.rows.forEach((photoRow) => {row.photos.push(photoRow.photo_link)})
+      //   row.review_id = row.id;
+      //   delete row.id;
+      //   console.log(photos.rows);
+      //   console.log(row.review_id)
+      //   if (sort === 'helpfulness' || sort === 'newest') {
+      //     returnObject.results.push(row)
+      //   } else if (sort === 'relevant') {
+      //     row.relevance = new Date(new Date(row.date).getTime() + monthInUnix * row.helpfulness).getTime();
+      //     relevantObjs.push(row)
+      //   }
+      // })
       if (sort === 'relevant') {
         relevantObjs.sort((a, b) => parseInt(b.relevance) - parseInt(a.relevance));
         relevantObjs.forEach(obj => delete obj.relevance);
@@ -140,6 +159,46 @@ app.get('/reviews/meta', (req, res) => {
       })
   }
 
+})
+
+app.put('/reviews/:id/helpful', (req, res) => {
+  req.psqlClient.query(`UPDATE reviews SET helpfulness = helpfulness + 1 WHERE id=${req.params.id}`)
+    .then(data => {
+      res.sendStatus(204);
+    })
+    .catch(err => {
+      res.send(err);
+    })
+})
+
+app.post('/reviews', (req, res) => {
+  var newIndex;
+  req.psqlClient.query(`SELECT id FROM reviews ORDER BY id DESC LIMIT 1;`)
+    .then(data => {
+      newIndex = data.rows[0].id + 1;
+      var date = new Date();
+      console.log(date)
+      return req.psqlClient.query(`INSERT INTO reviews VALUES (${newIndex}, ${req.body.product_id}, ${req.body.rating}, '${date.toISOString()}', '${req.body.summary}', '${req.body.body}', '${req.body.recommend}', '${req.body.name}', '${req.body.email}', null, 0)`)
+    })
+    .then((data) => {
+      return req.psqlClient.query(`SELECT id FROM characteristic_reviews ORDER BY id DESC LIMIT 1;`)
+    })
+    .then(async (data) => {
+      var newId = data.rows[0].id;
+      for (var key in req.body.characteristics) {
+        newId++;
+        await req.psqlClient.query(`INSERT INTO characteristic_reviews VALUES (${newId}, ${req.body.characteristics[key].id}), ${newIndex}, ${req.body.characteristics[key].value}`)
+      }
+    })
+    .then(() => {
+      // update meta
+      var number = `${req.body.rating === 1 ? 'one' : req.body.rating === 2 ? 'two' : req.body.rating === 3 ? 'three' : req.body.rating === 4 ? 'four' : req.body.rating === 5 ? 'five' : res.status(401).send('Wrong rating sent')}`
+      var bool = `${req.body.recommend}`
+      return req.psqlClient.query(`UPDATE metadata SET rating_${number} = rating_${number} + 1, recommend_${bool} = recommend_${bool} + 1 WHERE product_id=${req.body.product_id}`)
+    })
+    .then(() => {
+      res.sendStatus(201);
+    })
 })
 
 app.listen(3000, () => {
