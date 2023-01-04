@@ -35,8 +35,6 @@ app.get('/reviews/', (req, res) => {
         photos.rows.forEach((photoRow) => {row.photos.push(photoRow.photo_link)})
         row.review_id = row.id;
         delete row.id;
-        console.log(photos.rows);
-        console.log(row.review_id)
         if (sort === 'helpfulness' || sort === 'newest') {
           returnObject.results.push(row)
         } else if (sort === 'relevant') {
@@ -132,7 +130,6 @@ app.get('/reviews/meta', (req, res) => {
                 returnObj.characteristics[row.name].value.push(char.value)
                 if (index === characteristic.rows.length - 1 && rowIndex === data.rows.length - 1) {
                   res(returnObj)
-                  console.log('GOING TO RESOLVE, this is the return object', JSON.stringify(returnObj))
                 }
               })
             })
@@ -177,7 +174,6 @@ app.post('/reviews', (req, res) => {
     .then(data => {
       newIndex = data.rows[0].id + 1;
       var date = new Date();
-      console.log(date)
       return req.psqlClient.query(`INSERT INTO reviews VALUES (${newIndex}, ${req.body.product_id}, ${req.body.rating}, '${date.toISOString()}', '${req.body.summary}', '${req.body.body}', '${req.body.recommend}', '${req.body.name}', '${req.body.email}', null, 0)`)
     })
     .then((data) => {

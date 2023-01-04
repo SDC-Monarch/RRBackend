@@ -27,7 +27,6 @@ pool.connect()
       },
       complete: () => {
         pool.end();
-        console.log('DONE IN', new Date() - timeToComplete, '')
       }
     })
     var checkData = (arr) => {
@@ -109,7 +108,7 @@ pool.connect()
           query = query.replaceAll(', )', ')').slice(0, query.length - 2) + `;`
           client.query(query)
             .then(data => {resolve()})
-            .catch(err => {console.log('FAIL', err, 'THIS WAS THE QUERY', query); reject()})
+            .catch(err => { reject()})
         })
 
       })
