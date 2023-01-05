@@ -1,0 +1,16 @@
+config:
+  target: "http://localhost:3000"
+  phases:
+    - duration: 60
+      arrivalRate: 1000
+  http:
+    timeout: 30
+scenarios:
+  - name: "Get reviews"
+    flow:
+      - get:
+          url: "/reviews"
+          qs:
+            product_id: 312312
+            count: 5
+            page: 1
