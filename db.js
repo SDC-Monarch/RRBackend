@@ -4,6 +4,7 @@ const pool = new Pool({
   host: 'localhost',
   database: 'reviews',
   port: 5432,
+  max: 70
 })
 
 

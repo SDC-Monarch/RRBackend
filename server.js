@@ -53,6 +53,7 @@ app.get('/reviews/', (req, res) => {
 });
 
 app.get('/reviews/meta', (req, res) => {
+  try {
   var product = req.query.product_id || -1;
   var returnObj = {
     "product_id": product,
@@ -98,47 +99,57 @@ app.get('/reviews/meta', (req, res) => {
         return req.psqlClient.query(`SELECT id, name FROM characteristics WHERE product_id=${product}`)
       })
       .then(data => {
-        return new Promise((res, rej) => {
-        data.rows.forEach((row, rowIndex) => {
-          // store ID from each result in the characteristics object
-          returnObj.characteristics[row.name] = {
-            id: row.id,
-            value: []
-          }
-            req.psqlClient.query(`SELECT * FROM characteristic_reviews WHERE characteristic_id=${row.id}`)
-            .then(characteristic => {
-              characteristic.rows.forEach((char, index) => {
-                returnObj.characteristics[row.name].value.push(char.value)
-                if (index === characteristic.rows.length - 1 && rowIndex === data.rows.length - 1) {
-                  res(returnObj)
-                }
-              })
-            })
-          })
+        return new Promise(async (resolve, rej) => {
+          try {
+            for (var rowIndex = 0; rowIndex < data.rows.length; rowIndex++){
+              var row = data.rows[rowIndex];
+              var max = data.rows.length - 1;
+              // store ID from each result in the characteristics object
+              returnObj.characteristics[row.name] = {
+                id: row.id,
+                value: 0,
+                length: 0,
+              }
+                var characteristic = await req.psqlClient.query(`SELECT * FROM characteristic_reviews WHERE characteristic_id=${row.id}`)
+                var maxChar = characteristic.rows.length - 1
+                returnObj.characteristics[row.name].length = characteristic.rows.length;
+                characteristic.rows.forEach((char, index) => {
+                    returnObj.characteristics[row.name].value += char.value
+                    if (index === maxChar && rowIndex === max) {
+                      resolve(returnObj)
+                    }
+                  })
+              }
+
+            }
+            catch (err) {
+              req.psqlClient.release();
+              res.statusCode(500).send(err)
+            }
+
         })
       })
       .then((returnObj) => {
         // get average of characteristics
         // and format ratings to strings as the API would
-
-
-
         // avg calculation for each characteristic
-        var average = 0;
         for (var key in returnObj.characteristics) {
-          average = 0;
-          returnObj.characteristics[key].value.forEach(num => {
-            average += num;
-          })
-          average = average / returnObj.characteristics[key].value.length
-          returnObj.characteristics[key].value = average.toString();
+          returnObj.characteristics[key].value /= returnObj.characteristics[key].length
+          returnObj.characteristics[key].value = returnObj.characteristics[key].value.toString();
+          delete returnObj.characteristics[key].length
         }
         req.psqlClient.release()
         res.send(returnObj)
       })
+      .catch(err => {req.psqlClient.release(); res.statusCode(500).send(err)});
   }
+} catch (err) {
+  req.psqlClient.release();
+  res.statusCode(500).send(err)
+}
+}
 
-})
+)
 
 app.put('/reviews/:id/helpful', (req, res) => {
   req.psqlClient.query(`UPDATE reviews SET helpfulness = helpfulness + 1 WHERE id=${req.params.id}`)

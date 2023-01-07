@@ -2,8 +2,9 @@ config:
   target: "http://localhost:3000"
   phases:
     - duration: 60
-      arrivalRate: 1000
+      arrivalRate: 500
   http:
+    maxSockets: 10
     timeout: 30
 scenarios:
   - name: "Get Meta"
@@ -11,5 +12,5 @@ scenarios:
       - get:
           url: "/reviews/meta"
           qs:
-            product_id: 37311
+            product_id: 324244
 
